@@ -1,51 +1,54 @@
 package fuzzy
 
-type Matcher struct {
-	given   []string
-	letters []rune
+type Matcher interface {
+	Push(r rune)
+	Pop()
+	Clear()
+	Matches() []string
+
+	// like matches, but return the total number of comparison
+	// that the matcher did since inception.
+	matchesCost() ([]string, int)
 }
 
-func Match(lines []string) *Matcher {
-	return &Matcher{
-		given: lines,
-	}
-}
-
-func (m *Matcher) Push(r rune) {
-	m.letters = append(m.letters, r)
-}
-
-func (m *Matcher) Pop() {
-	m.letters = m.letters[:len(m.letters)-1]
-}
-
-func (m *Matcher) Len() int {
-	return len(m.letters)
-}
-
-func (m *Matcher) Clear() {
-	m.letters = m.letters[:0]
-}
-
-func (m *Matcher) Matches() []string {
+func computeMatches(lines []string, fuzzy []rune) ([]string, int) {
+	comparisons := 0
 	// very naive implementation, I haven't looked for
 	// proper algorithms
 	var matches []string
 nextLine:
-	for _, line := range m.given {
+	for _, line := range lines {
 		i := 0
+		if len(line) < len(fuzzy) {
+			// impossible to match
+			continue nextLine
+		}
+
 	nextFuzzyLetter:
-		for _, l := range m.letters {
-			for _, r := range []rune(line[i:]) {
+		for j, l := range fuzzy {
+			rest := []rune(line)[i:]
+
+			fuzzyLeft := len(fuzzy) - j
+			letterLeft := len(rest)
+			for _, r := range rest {
+				if fuzzyLeft > letterLeft {
+					// not enough letters to match
+					continue nextLine
+				}
+
+				i++
+
+				comparisons++
 				if r == l {
 					continue nextFuzzyLetter
 				}
-				i++
+				letterLeft--
 			}
 			continue nextLine
 		}
 		// all letters were found
 		matches = append(matches, line)
 	}
-	return matches
+
+	return matches, comparisons
 }
